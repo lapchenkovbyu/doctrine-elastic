@@ -37,13 +37,14 @@ class MappingHelper {
                 $propertiesMapping[$fieldName]['type'] = 'keyword';
             }
 
+            if (isset($propertiesMapping[$fieldName]['index'])) {
+                unset($propertiesMapping[$fieldName]['index']);
+            }
+
             if (isset($fieldMap['type']) && in_array($fieldMap['type'], ['string', 'text', 'keyword'])) {
                 continue;
             }
 
-            if (isset($propertiesMapping[$fieldName]['index'])) {
-                unset($propertiesMapping[$fieldName]['index']);
-            }
 
             if (isset($propertiesMapping[$fieldName]['boost'])) {
                 unset($propertiesMapping[$fieldName]['boost']);

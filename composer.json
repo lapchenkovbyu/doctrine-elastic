@@ -10,11 +10,8 @@
     ],
     "minimum-stability": "dev",
     "require": {
-        "doctrine/orm": "^2.5",
-        "satooshi/php-coveralls": "1.0.1"
-    },
-    "require-dev": {
-        "phpunit/phpunit": "~5.7.1"
+        "doctrine/orm": "^2.7",
+        "ruflin/elastica": "8.x-dev"
     },
     "autoload": {
         "psr-4": {

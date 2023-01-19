@@ -130,9 +130,9 @@ class ElasticEntityPersister {
         if (is_array($orderBy)) {
             foreach ($orderBy as $columnName => $order) {
                 if (isset($fieldAnnotations[$columnName])) {
-                    $sort[$fieldAnnotations[$columnName]->name] = ['order' => strtolower($order)];
+                    $sort[$fieldAnnotations[$columnName]->name] = ['order' => $order];
                 } else if (isset($metaFieldAnnotations[$columnName])) {
-                    $sort[$metaFieldAnnotations[$columnName]->name] = ['order' => strtolower($order)];
+                    $sort[$metaFieldAnnotations[$columnName]->name] = ['order' => $order];
                 }
             }
         }
@@ -245,6 +245,7 @@ class ElasticEntityPersister {
                 $mappings[$typeName]['_parent'] = ['type' => $parentType->getName()];
             }
 
+
             if (!$this->em->getConnection()->indexExists($indexName)) {
                 $created = $this->em->getConnection()->createIndex($indexName, $mappings);
             } else {
@@ -281,7 +282,7 @@ class ElasticEntityPersister {
                             $messageError = sprintf(
                                 "Unique field %s already has a document with value '%s'", $property, $value
                             );
-                            
+
                             if ($annotation->options) {
                                 $messageError = array_key_exists('message', $annotation->options) ? $annotation->options['message'] : $messageError;
                             }

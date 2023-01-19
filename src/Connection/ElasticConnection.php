@@ -4,9 +4,7 @@ namespace DoctrineElastic\Connection;
 
 use DoctrineElastic\Exception\ConnectionException;
 use DoctrineElastic\Exception\ElasticOperationException;
-use DoctrineElastic\Exception\InvalidIndexNameException;
 use DoctrineElastic\Exception\InvalidParamsException;
-use DoctrineElastic\Helper\IndexHelper;
 use DoctrineElastic\Helper\MappingHelper;
 use DoctrineElastic\Http\CurlRequest;
 use DoctrineElastic\Traiting\ErrorGetterTrait;
@@ -30,19 +28,15 @@ class ElasticConnection implements ElasticConnectionInterface {
     /** @var float */
     protected $esVersion;
 
-    public function __construct($host, $version = null) {
+    public function __construct(array $hosts) {
         $this->curlRequest = new CurlRequest();
-        $baseHost = is_array($host) ? reset($host) : $host;
+        $baseHost = reset($hosts);
 
         if (empty($baseHost) || !is_string($baseHost) || !preg_match('/http/', $baseHost)) {
             throw new ConnectionException("Elasticsearch host is invalid. ");
         }
 
         $this->curlRequest->setBaseUrl($baseHost);
-
-        if (!is_null($version)) {
-            $this->esVersion = $version;
-        }
     }
 
     /**
@@ -64,6 +58,7 @@ class ElasticConnection implements ElasticConnectionInterface {
 
         if (is_array($mappings) && !empty($mappings)) {
             $params['mappings'] = MappingHelper::patchMappings($mappings, floor($this->getElasticsearchVersion()));
+
         }
 
         if (is_array($settings) && !empty($settings)) {
@@ -74,7 +69,11 @@ class ElasticConnection implements ElasticConnectionInterface {
             $params['aliases'] = $aliases;
         }
 
-        $response = $this->curlRequest->request($index, $params, 'PUT');
+//        $params['_method']='PUT';
+//
+
+        $response = $this->curlRequest->request($index.'?include_type_name=true', $params, 'PUT',['Content-Type: application/json; charset=utf-8']);
+
         $return = $response['content'];
 
         if (isset($return['acknowledged']) && $return['acknowledged']) {
@@ -93,7 +92,7 @@ class ElasticConnection implements ElasticConnectionInterface {
      * @throws ElasticOperationException
      */
     public function deleteIndex($index, array &$return = null) {
-        if (boolval($index) && is_string($index) && !strstr('_all', $index) && $index != '*') {
+        if (is_string($index) && !strstr('_all', $index) && !strstr('*', $index)) {
             $response = $this->curlRequest->request("$index?refresh=true", [], 'DELETE');
             $return = $response['content'];
 
@@ -105,8 +104,7 @@ class ElasticConnection implements ElasticConnectionInterface {
                 return $return['acknowledged'];
             }
         } else {
-            $this->setError("Index name is invalid for deletion. Index name: '$index'");
-            return false;
+            throw new ElasticOperationException('Index name is invalid for deletion. ');
         }
 
         $this->setErrorFromElasticReturn($return);
@@ -134,7 +132,8 @@ class ElasticConnection implements ElasticConnectionInterface {
         $mappings = MappingHelper::patchMappings($mappings, floor($this->getElasticsearchVersion()));
 
         $url = "$index/_mapping/$type";
-        $response = $this->curlRequest->request($url, $mappings, 'PUT');
+
+        $response = $this->curlRequest->request($url.'?include_type_name=true', $mappings, 'POST', ['Content-Type: application/json; charset=utf-8']);
 
         $this->throwExceptionFromResponse($response, "Error creating type '$type' in '$index' index");
 
@@ -158,17 +157,19 @@ class ElasticConnection implements ElasticConnectionInterface {
      * @return bool
      */
     public function insert($index, $type, array $body, array $queryParams = [], array &$return = null) {
+//        dd($index,$type,$body);
         $url = "$index/$type";
         if (isset($body['_id'])) {
             $url .= '/' . $body['_id'];
             unset($body['_id']);
         }
 
-        $url = "$url?" . http_build_query(array_merge(['refresh' => "true"], $queryParams));
+        $url = "$url?" . http_build_query(array_merge(['refresh' => "true" ], $queryParams));
 
         $response = $this->curlRequest->request($url, $body, 'POST');
 
         $this->throwExceptionFromResponse($response);
+
         $return = $response['content'];
 
         if (isset($return['created'])) {
@@ -449,8 +450,6 @@ class ElasticConnection implements ElasticConnectionInterface {
      * @return bool
      */
     public function indexExists($index) {
-        $this->validateIndex($index);
-
         $response = $this->curlRequest->request($index, [], 'HEAD');
 
         return $response['status'] === 200;
@@ -491,19 +490,9 @@ class ElasticConnection implements ElasticConnectionInterface {
         }
     }
 
-    private function validateIndex($index) {
-        if (!IndexHelper::indexIsValid($index)) {
-            throw new InvalidIndexNameException(sprintf(
-                "The index name '$index' is invalid. It must not be empty or contain the following characters: [%s]",
-                implode(',', IndexHelper::$invalidIndexCharacters)
-            ));
-        }
-    }
-
     public function getElasticsearchVersion() {
         if (is_null($this->esVersion)) {
             $response = $this->curlRequest->request('', [], 'GET');
-
             if (isset($response['content']['version']['number'])) {
                 $this->esVersion = floatval($response['content']['version']['number']);
             } else {

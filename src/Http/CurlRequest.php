@@ -47,13 +47,14 @@ class CurlRequest {
 
             if (in_array($method, ['POST', 'PUT'])) {
                 if (boolval($data)) {
+                    curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
+
                     curl_setopt($ch, CURLOPT_POSTFIELDS, is_array($data) ? json_encode($data) : $data);
                 }
             }
 
             $url = rtrim($this->baseUrl, '/') . '/' . ltrim($url, '/');
             curl_setopt($ch, CURLOPT_URL, $url);
-
             $resultJson = curl_exec($ch);
 
             $content = json_decode($resultJson, true);
